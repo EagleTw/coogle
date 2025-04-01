@@ -1,4 +1,4 @@
-all: compile_commands.json build/coogle
+all: build/coogle
 
 compile_commands.json: Makefile
 	bear -- make build/coogle
