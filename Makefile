@@ -1,15 +1,20 @@
+CXX = clang++
+CXXFLAGS = -std=c++17 -I/opt/homebrew/opt/llvm/include
+LDFLAGS = -L/opt/homebrew/opt/llvm/lib -lclang
+
 all: build/coogle
 
-compile_commands.json: Makefile
-	bear -- make build/coogle
-
 build/coogle: src/main.cpp | build
-	clang++ -o build/coogle src/main.cpp -I/opt/homebrew/opt/llvm/include \
-	    -L/opt/homebrew/opt/llvm/lib -lclang
+	$(CXX) $(CXXFLAGS) -o $@ $< $(LDFLAGS)
 
 build:
 	mkdir -p build
 
+.PHONY: clean
 clean:
 	rm -rf build compile_commands.json .cache
 
+.PHONY: compile_commands.json
+compile_commands.json:
+	rm -f build/coogle
+	bear -- make build/coogle
