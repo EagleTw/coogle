@@ -1,11 +1,28 @@
 #include <clang-c/Index.h>
+#include <cstddef>
+#include <cstdio>
 #include <iostream>
 #include <regex>
 #include <string>
 #include <vector>
 
+
 constexpr size_t BUFFER_SIZE = 512;
 constexpr int EXPECTED_ARG_COUNT = 3;
+
+CXChildVisitResult visitor(CXCursor cursor, CXCursor parent,
+                           CXClientData client_data) {
+  // Only care about function declarations
+  CXCursorKind kind = clang_getCursorKind(cursor);
+  if (kind == CXCursor_FunctionDecl || kind == CXCursor_CXXMethod) {
+    CXString name = clang_getCursorSpelling(cursor);
+    std::cout << clang_getCString(name) << std::endl;
+    clang_disposeString(name);
+  }
+
+  // Keep traversing children
+  return CXChildVisit_Recurse;
+}
 
 // Windows is not supported for now
 std::vector<std::string> detectSystemIncludePaths() {
@@ -79,10 +96,14 @@ int main(int argc, char *argv[]) {
       index, filename.c_str(), clangArgs.data(), clangArgs.size(), nullptr, 0,
       CXTranslationUnit_None);
   if (!tu) { // Check for null translation unit
-    std::cerr << "Error parsing translation unit for file: " << filename << std::endl;
+    std::cerr << "Error parsing translation unit for file: " << filename
+              << std::endl;
     clang_disposeIndex(index);
     return 1;
   }
+
+  CXCursor rootCursor = clang_getTranslationUnitCursor(tu);
+  clang_visitChildren(rootCursor, visitor, nullptr);
 
   clang_disposeTranslationUnit(tu); // Clean up translation unit
   clang_disposeIndex(index);        // Clean up Clang index
