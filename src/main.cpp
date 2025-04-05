@@ -8,6 +8,9 @@
 #include <string>
 #include <vector>
 
+// TODO: line number of funciton decl
+// TODO: Rename function using LLVM style name
+
 constexpr std::size_t BUFFER_SIZE = 512;
 constexpr int EXPECTED_ARG_COUNT = 3;
 
@@ -25,30 +28,27 @@ struct Signature {
   std::vector<std::string> argType;
 };
 
-Signature parseFunctionSignature(std::string_view sigStr) {
-  Signature sig;
-
-  size_t parenOpen = sigStr.find('(');
-  size_t parenClose = sigStr.find(')', parenOpen);
+bool parseFunctionSignature(std::string_view input, Signature &output) {
+  size_t parenOpen = input.find('(');
+  size_t parenClose = input.find(')', parenOpen);
 
   if (parenOpen == std::string_view::npos ||
       parenClose == std::string_view::npos || parenClose <= parenOpen) {
     std::fprintf(stderr, "Invalid function signature: '%.*s'\n",
-                 (int)sigStr.size(), sigStr.data());
-    assert(0);
-    return sig;
+                 (int)input.size(), input.data());
+    return false;
   }
 
-  sig.retType = sigStr.substr(0, parenOpen);
-  std::cout << "retType: " << sig.retType << std::endl;
+  output.retType = input.substr(0, parenOpen);
+  std::cout << "retType: " << output.retType << std::endl;
 
   size_t start = parenOpen + 1;
-  while (start < sigStr.size()) {
-    size_t end = sigStr.find_first_of(",)", start);
-    std::string_view token = sigStr.substr(start, end - start);
+  while (start < input.size()) {
+    size_t end = input.find_first_of(",)", start);
+    std::string_view token = input.substr(start, end - start);
     std::string_view cleaned = trim(token);
     if (!cleaned.empty())
-      sig.argType.push_back(std::string(cleaned));
+      output.argType.push_back(std::string(cleaned));
 
     if (end == std::string_view::npos)
       break;
@@ -58,7 +58,7 @@ Signature parseFunctionSignature(std::string_view sigStr) {
     std::cout << "argType: " << cleaned << std::endl;
   }
 
-  return sig;
+  return true;
 }
 
 CXChildVisitResult visitor(CXCursor cursor, CXCursor parent,
@@ -150,7 +150,10 @@ int main(int argc, char *argv[]) {
   }
 
   const std::string filename = argv[1];
-  const Signature funcSignature = parseFunctionSignature(argv[2]);
+  Signature sig;
+  if (!parseFunctionSignature(argv[2], sig)) {
+    return 1;
+  }
 
   CXIndex index = clang_createIndex(0, 0);
   if (!index) {
