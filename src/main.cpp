@@ -1,4 +1,6 @@
 #include <clang-c/Index.h>
+
+#include <cassert>
 #include <cstddef>
 #include <cstdio>
 #include <iostream>
@@ -8,6 +10,56 @@
 
 constexpr std::size_t BUFFER_SIZE = 512;
 constexpr int EXPECTED_ARG_COUNT = 3;
+
+std::string_view trim(std::string_view sv) {
+  const size_t start = sv.find_first_not_of(" \t\n\r");
+  if (start == std::string_view::npos)
+    return {};
+
+  const size_t end = sv.find_last_not_of(" \t\n\r");
+  return sv.substr(start, end - start + 1);
+}
+
+struct Signature {
+  std::string retType;
+  std::vector<std::string> argType;
+};
+
+Signature parseFunctionSignature(std::string_view sigStr) {
+  Signature sig;
+
+  size_t parenOpen = sigStr.find('(');
+  size_t parenClose = sigStr.find(')', parenOpen);
+
+  if (parenOpen == std::string_view::npos ||
+      parenClose == std::string_view::npos || parenClose <= parenOpen) {
+    std::fprintf(stderr, "Invalid function signature: '%.*s'\n",
+                 (int)sigStr.size(), sigStr.data());
+    assert(0);
+    return sig;
+  }
+
+  sig.retType = sigStr.substr(0, parenOpen);
+  std::cout << "retType: " << sig.retType << std::endl;
+
+  size_t start = parenOpen + 1;
+  while (start < sigStr.size()) {
+    size_t end = sigStr.find_first_of(",)", start);
+    std::string_view token = sigStr.substr(start, end - start);
+    std::string_view cleaned = trim(token);
+    if (!cleaned.empty())
+      sig.argType.push_back(std::string(cleaned));
+
+    if (end == std::string_view::npos)
+      break;
+
+    start = end + 1;
+
+    std::cout << "argType: " << cleaned << std::endl;
+  }
+
+  return sig;
+}
 
 CXChildVisitResult visitor(CXCursor cursor, CXCursor parent,
                            CXClientData client_data) {
@@ -78,8 +130,10 @@ std::vector<std::string> detectSystemIncludePaths() {
   }
 
   if (pclose(pipe) != 0) { // Check for errors when closing the pipe
-    std::fprintf(stderr, "Error closing pipe for clang include path detection.\n");
+    std::fprintf(stderr,
+                 "Error closing pipe for clang include path detection.\n");
   }
+  pclose(pipe);
   return includePaths;
 }
 
@@ -88,15 +142,15 @@ int main(int argc, char *argv[]) {
     // clang-format off
     std::fprintf(stderr, "✖ Error: Incorrect number of arguments.\n\n");
     std::fprintf(stderr, "Usage:\n");
-    std::fprintf(stderr, "  %s <filename> <function_signature_prefix>\n\n", argv[0]);
+    std::fprintf(stderr, "  %s <filename> \"<function_signature_prefix>\"\n\n", argv[0]);
     std::fprintf(stderr, "Example:\n");
-    std::fprintf(stderr, "  %s example.c int(int, char *)\n\n", argv[0]);
+    std::fprintf(stderr, "  %s example.c \"int(int, char *)\"\n\n", argv[0]);
     // clang-format on
     return 1;
   }
 
   const std::string filename = argv[1];
-  const std::string targetSignature = argv[2];
+  const Signature funcSignature = parseFunctionSignature(argv[2]);
 
   CXIndex index = clang_createIndex(0, 0);
   if (!index) {
@@ -115,7 +169,8 @@ int main(int argc, char *argv[]) {
       CXTranslationUnit_None);
   if (!tu) { // Check for null translation unit
     // clang-fomat off
-    std::fprintf(stderr, "Error parsing translation unit for file: %s\n", filename.c_str());
+    std::fprintf(stderr, "Error parsing translation unit for file: %s\n",
+                 filename.c_str());
     // clang-fomat on
     clang_disposeIndex(index);
     return 1;
