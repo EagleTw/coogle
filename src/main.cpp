@@ -6,21 +6,38 @@
 #include <string>
 #include <vector>
 
-
-constexpr size_t BUFFER_SIZE = 512;
+constexpr std::size_t BUFFER_SIZE = 512;
 constexpr int EXPECTED_ARG_COUNT = 3;
 
 CXChildVisitResult visitor(CXCursor cursor, CXCursor parent,
                            CXClientData client_data) {
-  // Only care about function declarations
   CXCursorKind kind = clang_getCursorKind(cursor);
   if (kind == CXCursor_FunctionDecl || kind == CXCursor_CXXMethod) {
-    CXString name = clang_getCursorSpelling(cursor);
-    std::cout << clang_getCString(name) << std::endl;
-    clang_disposeString(name);
+    CXString funcName = clang_getCursorSpelling(cursor);
+    std::printf("f: %s\n", clang_getCString(funcName));
+    clang_disposeString(funcName);
+
+    int numArgs = clang_Cursor_getNumArguments(cursor);
+    for (int i = 0; i < numArgs; ++i) {
+      CXCursor argCursor = clang_Cursor_getArgument(cursor, i);
+      CXString argName = clang_getCursorSpelling(argCursor);
+      CXType argType = clang_getCursorType(argCursor);
+      CXString typeSpelling = clang_getTypeSpelling(argType);
+
+      std::printf("  Args %d: %s (%s)\n", i, clang_getCString(argName),
+                  clang_getCString(typeSpelling));
+
+      clang_disposeString(argName);
+      clang_disposeString(typeSpelling);
+    }
+
+    CXType retType = clang_getCursorResultType(cursor);
+    CXString retSpelling = clang_getTypeSpelling(retType);
+    std::printf("  return: %s\n", clang_getCString(retSpelling));
+    clang_disposeString(retSpelling);
+    std::printf("\n");
   }
 
-  // Keep traversing children
   return CXChildVisit_Recurse;
 }
 
@@ -68,11 +85,13 @@ std::vector<std::string> detectSystemIncludePaths() {
 
 int main(int argc, char *argv[]) {
   if (argc != EXPECTED_ARG_COUNT) { // Use constant for argument count
-    std::cerr << "✖ Error: Incorrect number of arguments.\n\n";
-    std::cerr << "Usage:\n";
-    std::cerr << "  coogle <filename.c> <function_signature_prefix>\n\n";
-    std::cerr << "Example:\n";
-    std::cerr << "  ./coogle example.c int(int, char *)\n\n";
+    // clang-format off
+    std::fprintf(stderr, "✖ Error: Incorrect number of arguments.\n\n");
+    std::fprintf(stderr, "Usage:\n");
+    std::fprintf(stderr, "  %s <filename> <function_signature_prefix>\n\n", argv[0]);
+    std::fprintf(stderr, "Example:\n");
+    std::fprintf(stderr, "  %s example.c int(int, char *)\n\n", argv[0]);
+    // clang-format on
     return 1;
   }
 
@@ -81,14 +100,13 @@ int main(int argc, char *argv[]) {
 
   CXIndex index = clang_createIndex(0, 0);
   if (!index) {
-    std::cerr << "Error creating Clang index." << std::endl;
+    std::fprintf(stderr, "Error creating Clang index\n");
     return 1;
   }
 
   std::vector<std::string> argsVec = detectSystemIncludePaths();
   std::vector<const char *> clangArgs;
   for (const auto &s : argsVec) {
-    std::cout << s << std::endl;
     clangArgs.push_back(s.c_str());
   }
 
@@ -105,7 +123,7 @@ int main(int argc, char *argv[]) {
   CXCursor rootCursor = clang_getTranslationUnitCursor(tu);
   clang_visitChildren(rootCursor, visitor, nullptr);
 
-  clang_disposeTranslationUnit(tu); // Clean up translation unit
+  clang_disposeTranslationUnit(tu); /p/ Clean up translation unit
   clang_disposeIndex(index);        // Clean up Clang index
 
   return 0;
