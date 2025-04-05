@@ -78,7 +78,7 @@ std::vector<std::string> detectSystemIncludePaths() {
   }
 
   if (pclose(pipe) != 0) { // Check for errors when closing the pipe
-    std::cerr << "Error closing pipe for clang include path detection.\n";
+    std::fprintf(stderr, "Error closing pipe for clang include path detection.\n");
   }
   return includePaths;
 }
@@ -114,8 +114,9 @@ int main(int argc, char *argv[]) {
       index, filename.c_str(), clangArgs.data(), clangArgs.size(), nullptr, 0,
       CXTranslationUnit_None);
   if (!tu) { // Check for null translation unit
-    std::cerr << "Error parsing translation unit for file: " << filename
-              << std::endl;
+    // clang-fomat off
+    std::fprintf(stderr, "Error parsing translation unit for file: %s\n", filename.c_str());
+    // clang-fomat on
     clang_disposeIndex(index);
     return 1;
   }
@@ -123,7 +124,7 @@ int main(int argc, char *argv[]) {
   CXCursor rootCursor = clang_getTranslationUnitCursor(tu);
   clang_visitChildren(rootCursor, visitor, nullptr);
 
-  clang_disposeTranslationUnit(tu); /p/ Clean up translation unit
+  clang_disposeTranslationUnit(tu); // Clean up translation unit
   clang_disposeIndex(index);        // Clean up Clang index
 
   return 0;
