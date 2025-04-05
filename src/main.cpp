@@ -54,8 +54,6 @@ bool parseFunctionSignature(std::string_view input, Signature &output) {
       break;
 
     start = end + 1;
-
-    std::cout << "argType: " << cleaned << std::endl;
   }
 
   return true;
@@ -66,8 +64,15 @@ CXChildVisitResult visitor(CXCursor cursor, CXCursor parent,
   CXCursorKind kind = clang_getCursorKind(cursor);
   if (kind == CXCursor_FunctionDecl || kind == CXCursor_CXXMethod) {
     CXString funcName = clang_getCursorSpelling(cursor);
-    std::printf("f: %s\n", clang_getCString(funcName));
+    CXType retType = clang_getCursorResultType(cursor);
+    CXString retSpelling = clang_getTypeSpelling(retType);
+
+    // clang-format off
+    std::printf("%s: %s(", clang_getCString(funcName), clang_getCString(retSpelling));
+    // clang-format on
+
     clang_disposeString(funcName);
+    clang_disposeString(retSpelling);
 
     int numArgs = clang_Cursor_getNumArguments(cursor);
     for (int i = 0; i < numArgs; ++i) {
@@ -76,18 +81,14 @@ CXChildVisitResult visitor(CXCursor cursor, CXCursor parent,
       CXType argType = clang_getCursorType(argCursor);
       CXString typeSpelling = clang_getTypeSpelling(argType);
 
-      std::printf("  Args %d: %s (%s)\n", i, clang_getCString(argName),
-                  clang_getCString(typeSpelling));
+      std::printf("%s", clang_getCString(typeSpelling));
+      if (i != numArgs - 1)
+        std::printf(",");
 
       clang_disposeString(argName);
       clang_disposeString(typeSpelling);
     }
-
-    CXType retType = clang_getCursorResultType(cursor);
-    CXString retSpelling = clang_getTypeSpelling(retType);
-    std::printf("  return: %s\n", clang_getCString(retSpelling));
-    clang_disposeString(retSpelling);
-    std::printf("\n");
+    std::printf(")\n");
   }
 
   return CXChildVisit_Recurse;
