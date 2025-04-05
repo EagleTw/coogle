@@ -13,3 +13,16 @@ It allows:
 - Explore large libraries without reading every header file
 - Learn from existing patterns by searching for reusable APIs
 - Integrate smart function search into your workflow or editor
+
+## Installation
+
+## Usage
+
+## Implementation Notes
+
+- [x] Uses the Clang C API (libclang) to parse translation units
+- [x] Automatically detects system include paths using clang -E -v
+- [ ] Simple visitor pattern walks the AST and prints functions arguments and return value
+- [ ] Match strict arguments with given oneself
+- [ ] Wildcard paraminput, example `int(char *, *)`
+- [ ] Search across multiple files
