@@ -1,20 +1,32 @@
 CXX = clang++
-CXXFLAGS = -std=c++17 -I/opt/homebrew/opt/llvm/include
-LDFLAGS = -L/opt/homebrew/opt/llvm/lib -lclang
+CXXFLAGS = -std=c++17 -Wall -Wextra -I/opt/homebrew/opt/llvm/include
+LDFLAGS = -L/opt/homebrew/opt/llvm/lib
 
-all: build/coogle
+SRC_DIR  := src
+BUILD    := build
+BIN      := $(BUILD)/coogle
 
-build/coogle: src/main.cpp | build
-	$(CXX) $(CXXFLAGS) -o $@ $< $(LDFLAGS)
+SRCS     := $(wildcard $(SRC_DIR)/*.cpp)
+OBJS     := $(patsubst $(SRC_DIR)/%.cpp,$(BUILD)/%.o,$(SRCS))
 
-build:
-	mkdir -p build
+LLVM_FLAGS := $(shell llvm-config --cflags --libs --system-libs) -lclang
+
+all: $(BIN)
+
+$(BUILD):
+	mkdir -p $(BUILD)
+
+$(BUILD)/%.o: $(SRC_DIR)/%.cpp | $(BUILD)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(BIN): $(OBJS)
+	$(CXX) $(CXXFLAGS) $^ -o $@ $(LLVM_FLAGS) $(LDFLAGS)
 
 .PHONY: clean
 clean:
-	rm -rf build compile_commands.json .cache
+	rm -rf build $(BIN) compile_commands.json .cache
 
 .PHONY: compile_commands.json
 compile_commands.json:
-	rm -f build/coogle
-	bear -- make build/coogle
+	rm -f $(BIN)
+	bear -- make all
